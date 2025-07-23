@@ -6,10 +6,12 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
 // Middleware
-app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0eyhim6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -68,8 +70,6 @@ async function run() {
       res.send(result);
     });
 
-    
-
     // GET: All properties
     app.get("/properties", async (req, res) => {
       const result = await propertyCollection.find().toArray();
@@ -79,14 +79,20 @@ async function run() {
     // GET: Single property
     app.get("/properties/:id", async (req, res) => {
       const id = req.params.id;
-      const property = await propertyCollection.findOne({ _id: new ObjectId(id) });
+      const property = await propertyCollection.findOne({
+        _id: new ObjectId(id),
+      });
       res.send(property);
     });
 
     //  GET: Wishlist by email
     app.get("/wishlist/:email", async (req, res) => {
       const email = req.params.email;
-      const result = await wishlistCollection.find({ userEmail: email }).toArray();
+      // console.log("Wishlist fetch for:", email); // debug log
+      const result = await wishlistCollection
+        .find({ $or: [{ userEmail: email }, { email: email }] })
+        .toArray();
+      // console.log("Wishlist result:", result); // debug log
       res.send(result);
     });
 
