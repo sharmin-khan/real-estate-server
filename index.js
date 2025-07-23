@@ -131,6 +131,21 @@ async function run() {
       res.send(result);
     });
 
+    // DELETE: Delete a review by id
+    app.delete("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      try {
+        const result = await reviewsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ error: "Failed to delete review", details: err });
+      }
+    });
+
     // POST: Add an offer
     app.post("/offers", async (req, res) => {
       const offer = req.body;
