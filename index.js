@@ -5,13 +5,12 @@ const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
-//Middleware
+// Middleware
 app.use(cors());
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0eyhim6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -22,27 +21,26 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    await client.connect(); //  DB connection
 
     const db = client.db("RealEstate");
     const usersCollection = db.collection("users");
     const wishlistCollection = db.collection("wishlist");
     const propertyCollection = db.collection("properties");
+    const reviewsCollection = db.collection("reviews");
 
+    // POST: Add user
     app.post("/users", async (req, res) => {
       const user = req.body;
       const existingUser = await usersCollection.findOne({ email: user.email });
-      // console.log("Received user:", user);
-
       if (existingUser) {
         return res.send({ message: "User already exists" });
       }
-
       const result = await usersCollection.insertOne(user);
-      // console.log("Insert result:", result);
       res.send(result);
     });
 
+    // GET: User role
     app.get("/users/role/:email", async (req, res) => {
       const email = req.params.email;
       const user = await usersCollection.findOne({ email });
@@ -53,67 +51,70 @@ async function run() {
       }
     });
 
-    // Add to Wishlist
+    // POST: Add to wishlist
     app.post("/wishlist", async (req, res) => {
       const wishlistItem = req.body;
-
       const exists = await wishlistCollection.findOne({
         propertyId: wishlistItem.propertyId,
         userEmail: wishlistItem.userEmail,
       });
-
       if (exists) {
         return res.send({ message: "already exists" });
       }
-
       const result = await wishlistCollection.insertOne(wishlistItem);
       res.send(result);
     });
 
-    // Get all properties
+    
+
+    // GET: All properties
     app.get("/properties", async (req, res) => {
       const result = await propertyCollection.find().toArray();
       res.send(result);
     });
 
-    // Get single property (for details page)
+    // GET: Single property
     app.get("/properties/:id", async (req, res) => {
       const id = req.params.id;
-      const property = await propertyCollection.findOne({
-        _id: new ObjectId(id),
-      });
+      const property = await propertyCollection.findOne({ _id: new ObjectId(id) });
       res.send(property);
     });
 
-    app.post("/wishlist", async (req, res) => {
-      const wishlistItem = req.body;
-
-      // Check if already added by same user for same property
-      const exists = await wishlistCollection.findOne({
-        propertyId: wishlistItem.propertyId,
-        email: wishlistItem.email,
-      });
-
-      if (exists) {
-        return res.send({ message: "Already in wishlist" });
-      }
-
-      const result = await wishlistCollection.insertOne(wishlistItem);
+    //  GET: Wishlist by email
+    app.get("/wishlist/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await wishlistCollection.find({ userEmail: email }).toArray();
       res.send(result);
     });
 
+    // GET: Reviews for a property
+    app.get("/reviews/:propertyId", async (req, res) => {
+      const { propertyId } = req.params;
+      const reviews = await reviewsCollection.find({ propertyId }).toArray();
+      res.send(reviews);
+    });
+
+    // POST: Add a review
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+    //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
-  } finally {
-    // await client.close();
+    console.log(" Pinged your deployment. Connected to MongoDB!");
+  } catch (err) {
+    console.error(err);
   }
 }
+
 run().catch(console.dir);
 
+// Default route
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
+// Start server
 app.listen(port, () => console.log(`Server running on port ${port}`));
