@@ -104,25 +104,66 @@ async function run() {
       res.send(reviews);
     });
 
-    // GET: Reviews by user email
+    // // GET: Reviews by user email
+    // app.get("/reviews", async (req, res) => {
+    //   const email = req.query.email;
+    //   if (!email) {
+    //     return res
+    //       .status(400)
+    //       .send({ error: "Email query parameter is required" });
+    //   }
+    //   try {
+    //     const result = await reviewsCollection
+    //       .find({ userEmail: email })
+    //       .toArray();
+    //     res.send(result);
+    //   } catch (err) {
+    //     res
+    //       .status(500)
+    //       .send({ error: "Failed to fetch reviews", details: err });
+    //   }
+    // });
+  
+
+   
+    // ✅ GET: Latest 3 user reviews with user info and property title
     app.get("/reviews", async (req, res) => {
-      const email = req.query.email;
-      if (!email) {
-        return res
-          .status(400)
-          .send({ error: "Email query parameter is required" });
+      if (req.query.latest) {
+        const latest = parseInt(req.query.latest);
+        try {
+          const result = await reviewsCollection
+            .find({})
+            .sort({ time: -1 })
+            .limit(latest)
+            .toArray();
+          return res.send(result);
+        } catch (err) {
+          return res.status(500).send({ error: "Failed to fetch latest reviews", details: err });
+        }
       }
+    
+      // Existing user email filter
+      const email = req.query.email;
+      if (email) {
+        try {
+          const result = await reviewsCollection
+            .find({ userEmail: email })
+            .toArray();
+          return res.send(result);
+        } catch (err) {
+          return res.status(500).send({ error: "Failed to fetch reviews", details: err });
+        }
+      }
+    
+      // **Default: return all reviews if no query param**
       try {
-        const result = await reviewsCollection
-          .find({ userEmail: email })
-          .toArray();
+        const result = await reviewsCollection.find().toArray();
         res.send(result);
       } catch (err) {
-        res
-          .status(500)
-          .send({ error: "Failed to fetch reviews", details: err });
+        res.status(500).send({ error: "Failed to fetch reviews", details: err });
       }
     });
+
 
     // POST: Add a review
     app.post("/reviews", async (req, res) => {
@@ -144,6 +185,15 @@ async function run() {
           .status(500)
           .send({ error: "Failed to delete review", details: err });
       }
+    });
+
+   
+    // POST: Save review with createdAt
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      review.time = new Date(); // ✅ current time set
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
     });
 
     // POST: Add an offer
