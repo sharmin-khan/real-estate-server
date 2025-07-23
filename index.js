@@ -33,6 +33,7 @@ async function run() {
     const wishlistCollection = db.collection("wishlist");
     const propertyCollection = db.collection("properties");
     const reviewsCollection = db.collection("reviews");
+    const offersCollection = db.collection("offers");
 
     // POST: Add user
     app.post("/users", async (req, res) => {
@@ -109,6 +110,17 @@ async function run() {
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
+
+    // POST: Add an offer
+app.post("/offers", async (req, res) => {
+  const offer = req.body;
+  try {
+    const result = await offersCollection.insertOne(offer);
+    res.send(result);
+  } catch (err) {
+    res.status(500).send({ error: 'Failed to save offer', details: err });
+  }
+});
 
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
