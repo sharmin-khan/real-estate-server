@@ -122,6 +122,20 @@ app.post("/offers", async (req, res) => {
   }
 });
 
+// GET: Offers by buyer email
+app.get("/offers", async (req, res) => {
+  const email = req.query.email;
+  if (!email) {
+    return res.status(400).send({ error: "Email query parameter is required" });
+  }
+  try {
+    const result = await offersCollection.find({ buyerEmail: email }).toArray();
+    res.send(result);
+  } catch (err) {
+    res.status(500).send({ error: "Failed to fetch offers", details: err });
+  }
+});
+
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
     console.log(" Pinged your deployment. Connected to MongoDB!");
