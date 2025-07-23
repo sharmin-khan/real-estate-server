@@ -104,6 +104,26 @@ async function run() {
       res.send(reviews);
     });
 
+    // GET: Reviews by user email
+    app.get("/reviews", async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
+        return res
+          .status(400)
+          .send({ error: "Email query parameter is required" });
+      }
+      try {
+        const result = await reviewsCollection
+          .find({ userEmail: email })
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ error: "Failed to fetch reviews", details: err });
+      }
+    });
+
     // POST: Add a review
     app.post("/reviews", async (req, res) => {
       const review = req.body;
@@ -112,29 +132,33 @@ async function run() {
     });
 
     // POST: Add an offer
-app.post("/offers", async (req, res) => {
-  const offer = req.body;
-  try {
-    const result = await offersCollection.insertOne(offer);
-    res.send(result);
-  } catch (err) {
-    res.status(500).send({ error: 'Failed to save offer', details: err });
-  }
-});
+    app.post("/offers", async (req, res) => {
+      const offer = req.body;
+      try {
+        const result = await offersCollection.insertOne(offer);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to save offer", details: err });
+      }
+    });
 
-// GET: Offers by buyer email
-app.get("/offers", async (req, res) => {
-  const email = req.query.email;
-  if (!email) {
-    return res.status(400).send({ error: "Email query parameter is required" });
-  }
-  try {
-    const result = await offersCollection.find({ buyerEmail: email }).toArray();
-    res.send(result);
-  } catch (err) {
-    res.status(500).send({ error: "Failed to fetch offers", details: err });
-  }
-});
+    // GET: Offers by buyer email
+    app.get("/offers", async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
+        return res
+          .status(400)
+          .send({ error: "Email query parameter is required" });
+      }
+      try {
+        const result = await offersCollection
+          .find({ buyerEmail: email })
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to fetch offers", details: err });
+      }
+    });
 
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
