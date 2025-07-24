@@ -284,6 +284,28 @@ async function run() {
       }
     });
 
+//--------Agent API----//
+    // PATCH: Update property by ID
+    app.patch('/properties/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updateData = req.body;
+        const result = await propertyCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData }
+        );
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: 'Property updated successfully' });
+        } else {
+          res.status(404).send({ success: false, message: 'Property not found or no changes' });
+        }
+      } catch (error) {
+        res.status(500).send({ success: false, message: 'Server error', error: error.message });
+      }
+    });
+
+    
+
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
     console.log(" Pinged your deployment. Connected to MongoDB!");
