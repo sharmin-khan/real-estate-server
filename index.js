@@ -76,6 +76,30 @@ async function run() {
       const result = await propertyCollection.find().toArray();
       res.send(result);
     });
+    // POST: Add a new property
+    app.post("/properties", async (req, res) => {
+      try {
+        const property = req.body;
+
+        // Validate required fields
+        if (
+          !property.title ||
+          !property.location ||
+          !property.image ||
+          !property.agentName ||
+          !property.agentEmail ||
+          !property.priceMin ||
+          !property.priceMax
+        ) {
+          return res.status(400).send({ error: "All fields are required." });
+        }
+
+        const result = await propertyCollection.insertOne(property);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to add property", details: err });
+      }
+    });
 
     // GET: Single property
     app.get("/properties/:id", async (req, res) => {
@@ -123,9 +147,7 @@ async function run() {
     //       .send({ error: "Failed to fetch reviews", details: err });
     //   }
     // });
-  
 
-   
     // ✅ GET: Latest 3 user reviews with user info and property title
     app.get("/reviews", async (req, res) => {
       if (req.query.latest) {
@@ -138,10 +160,12 @@ async function run() {
             .toArray();
           return res.send(result);
         } catch (err) {
-          return res.status(500).send({ error: "Failed to fetch latest reviews", details: err });
+          return res
+            .status(500)
+            .send({ error: "Failed to fetch latest reviews", details: err });
         }
       }
-    
+
       // Existing user email filter
       const email = req.query.email;
       if (email) {
@@ -151,19 +175,22 @@ async function run() {
             .toArray();
           return res.send(result);
         } catch (err) {
-          return res.status(500).send({ error: "Failed to fetch reviews", details: err });
+          return res
+            .status(500)
+            .send({ error: "Failed to fetch reviews", details: err });
         }
       }
-    
+
       // **Default: return all reviews if no query param**
       try {
         const result = await reviewsCollection.find().toArray();
         res.send(result);
       } catch (err) {
-        res.status(500).send({ error: "Failed to fetch reviews", details: err });
+        res
+          .status(500)
+          .send({ error: "Failed to fetch reviews", details: err });
       }
     });
-
 
     // POST: Add a review
     app.post("/reviews", async (req, res) => {
@@ -187,7 +214,6 @@ async function run() {
       }
     });
 
-   
     // POST: Save review with createdAt
     app.post("/reviews", async (req, res) => {
       const review = req.body;
@@ -222,6 +248,39 @@ async function run() {
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: "Failed to fetch offers", details: err });
+      }
+    });
+
+    //-------API for Admin--------
+    // PATCH /properties/:id/verify - verify property
+    app.patch("/properties/:id/verify", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await propertiesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { verificationStatus: "verified" } }
+        );
+        res.json({ message: "Property verified", result });
+      } catch (err) {
+        res
+          .status(500)
+          .json({ message: "Failed to verify property", error: err.message });
+      }
+    });
+
+    // PATCH /properties/:id/reject - reject property
+    app.patch("/properties/:id/reject", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await propertiesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { verificationStatus: "rejected" } }
+        );
+        res.json({ message: "Property rejected", result });
+      } catch (err) {
+        res
+          .status(500)
+          .json({ message: "Failed to reject property", error: err.message });
       }
     });
 
