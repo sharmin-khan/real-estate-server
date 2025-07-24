@@ -304,6 +304,21 @@ async function run() {
       }
     });
 
+    // DELETE: Delete property by ID
+app.delete('/properties/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await propertyCollection.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount > 0) {
+      res.send({ success: true, message: 'Property deleted successfully' });
+    } else {
+      res.status(404).send({ success: false, message: 'Property not found' });
+    }
+  } catch (error) {
+    res.status(500).send({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
     
 
     //  DB connection test - this line must be INSIDE try block
