@@ -251,7 +251,13 @@ async function run() {
       }
     });
 
-    //-------API for Admin--------
+    //-------API for ADMIN--------
+    // === ADMIN USER MANAGEMENT START ===
+    // GET all users
+    app.get('/users', async (req, res) => {
+      const users = await usersCollection.find().toArray();
+      res.send(users);
+    });
     // PATCH /properties/:id/verify - verify property
     app.patch("/properties/:id/verify", async (req, res) => {
       try {
