@@ -4,6 +4,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const admin = require("./firebase/firebase.config");
 
 // Middleware
 app.use(
@@ -254,38 +255,73 @@ async function run() {
     //-------API for ADMIN--------
     // === ADMIN USER MANAGEMENT START ===
     // GET all users
-    app.get('/users', async (req, res) => {
+    app.get("/users", async (req, res) => {
       const users = await usersCollection.find().toArray();
       res.send(users);
     });
 
     // PATCH: Update user role (admin/agent)
-app.patch('/users/:id/role', async (req, res) => {
-  const { role } = req.body;
-  const id = req.params.id;
-  await usersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { role } });
-  res.send({ success: true });
-});
+    app.patch("/users/:id/role", async (req, res) => {
+      const { role } = req.body;
+      const id = req.params.id;
+      await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+      res.send({ success: true });
+    });
 
-// PATCH: Mark user as fraud (and remove their properties)
-app.patch('/users/:id/fraud', async (req, res) => {
-  const id = req.params.id;
-  // 1. Mark user as fraud
-  await usersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: 'fraud' } });
-  // 2. Remove all properties by this agent from All Properties (set a flag or delete)
-  await propertyCollection.updateMany({ agentId: id }, { $set: { verificationStatus: 'fraud' } });
-  res.send({ success: true });
-});
+    // PATCH: Mark user as fraud (and remove their properties)
+    app.patch("/users/:id/fraud", async (req, res) => {
+      const id = req.params.id;
+      // 1. Mark user as fraud
+      await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "fraud" } }
+      );
+      // 2. Remove all properties by this agent from All Properties (set a flag or delete)
+      await propertyCollection.updateMany(
+        { agentId: id },
+        { $set: { verificationStatus: "fraud" } }
+      );
+      res.send({ success: true });
+    });
 
-// DELETE: Remove user from DB (and Firebase)
-app.delete('/users/:id', async (req, res) => {
-  const id = req.params.id;
-  // 1. Remove from DB
-  await usersCollection.deleteOne({ _id: new ObjectId(id) });
-  // 2. Remove from Firebase (placeholder)
-  // TODO: Use Firebase Admin SDK to delete user by email/uid
-  res.send({ success: true });
-});
+    //  DELETE: Remove user from DB and Firebase Auth
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        // 1. Get user from DB
+        const user = await usersCollection.findOne({ _id: new ObjectId(id) });
+
+        if (!user) {
+          return res
+            .status(404)
+            .send({ success: false, message: "User not found" });
+        }
+
+        // 2. Delete user from MongoDB
+        await usersCollection.deleteOne({ _id: new ObjectId(id) });
+
+        // 3. Delete user from Firebase Auth (by email)
+        const firebaseUser = await admin.auth().getUserByEmail(user.email);
+        await admin.auth().deleteUser(firebaseUser.uid);
+
+        res.send({
+          success: true,
+          message: "User deleted from DB and Firebase",
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to delete user from Firebase",
+          error: error.message,
+        });
+      }
+    });
+
     // PATCH /properties/:id/verify - verify property
     app.patch("/properties/:id/verify", async (req, res) => {
       try {
@@ -331,21 +367,17 @@ app.delete('/users/:id', async (req, res) => {
         if (result.modifiedCount > 0) {
           res.send({ success: true, message: "Property updated successfully" });
         } else {
-          res
-            .status(404)
-            .send({
-              success: false,
-              message: "Property not found or no changes",
-            });
+          res.status(404).send({
+            success: false,
+            message: "Property not found or no changes",
+          });
         }
       } catch (error) {
-        res
-          .status(500)
-          .send({
-            success: false,
-            message: "Server error",
-            error: error.message,
-          });
+        res.status(500).send({
+          success: false,
+          message: "Server error",
+          error: error.message,
+        });
       }
     });
 
@@ -364,13 +396,11 @@ app.delete('/users/:id', async (req, res) => {
             .send({ success: false, message: "Property not found" });
         }
       } catch (error) {
-        res
-          .status(500)
-          .send({
-            success: false,
-            message: "Server error",
-            error: error.message,
-          });
+        res.status(500).send({
+          success: false,
+          message: "Server error",
+          error: error.message,
+        });
       }
     });
 
@@ -424,49 +454,64 @@ app.delete('/users/:id', async (req, res) => {
           .send({ error: "Failed to fetch offers for agent", details: err });
       }
     });
-    
-   // PATCH: Accept an offer and reject others for the same property
-// PATCH: Accept or Reject an offer (Based on the status value )
-app.patch('/offers/status/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { status } = req.body;
 
-    if (status === "accepted") {
-      // Find the accepted offer
-      const acceptedOffer = await offersCollection.findOne({ _id: new ObjectId(id) });
-      if (!acceptedOffer) {
-        return res.status(404).send({ success: false, message: 'Offer not found' });
+    // PATCH: Accept an offer and reject others for the same property
+    // PATCH: Accept or Reject an offer (Based on the status value )
+    app.patch("/offers/status/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body;
+
+        if (status === "accepted") {
+          // Find the accepted offer
+          const acceptedOffer = await offersCollection.findOne({
+            _id: new ObjectId(id),
+          });
+          if (!acceptedOffer) {
+            return res
+              .status(404)
+              .send({ success: false, message: "Offer not found" });
+          }
+          const propertyId = acceptedOffer.propertyId;
+
+          // 1️⃣ Accept this offer
+          await offersCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { status: "accepted" } }
+          );
+
+          // 2️⃣ Reject other offers for the same property
+          await offersCollection.updateMany(
+            { propertyId: propertyId, _id: { $ne: new ObjectId(id) } },
+            { $set: { status: "rejected" } }
+          );
+
+          return res.send({
+            success: true,
+            message: "Offer accepted and others rejected",
+          });
+        } else if (status === "rejected") {
+          // Just reject this offer
+          await offersCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { status: "rejected" } }
+          );
+          return res.send({ success: true, message: "Offer rejected" });
+        } else {
+          return res
+            .status(400)
+            .send({ success: false, message: "Invalid status value" });
+        }
+      } catch (error) {
+        res
+          .status(500)
+          .send({
+            success: false,
+            message: "Server error",
+            error: error.message,
+          });
       }
-      const propertyId = acceptedOffer.propertyId;
-
-      // 1️⃣ Accept this offer
-      await offersCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { status: "accepted" } }
-      );
-
-      // 2️⃣ Reject other offers for the same property
-      await offersCollection.updateMany(
-        { propertyId: propertyId, _id: { $ne: new ObjectId(id) } },
-        { $set: { status: "rejected" } }
-      );
-
-      return res.send({ success: true, message: 'Offer accepted and others rejected' });
-    } else if (status === "rejected") {
-      // Just reject this offer
-      await offersCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { status: "rejected" } }
-      );
-      return res.send({ success: true, message: 'Offer rejected' });
-    } else {
-      return res.status(400).send({ success: false, message: 'Invalid status value' });
-    }
-  } catch (error) {
-    res.status(500).send({ success: false, message: 'Server error', error: error.message });
-  }
-});
+    });
 
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
