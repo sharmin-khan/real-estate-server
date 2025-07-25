@@ -391,7 +391,48 @@ async function run() {
       }
     });
     
+   // PATCH: Accept an offer and reject others for the same property
+// PATCH: Accept or Reject an offer (Based on the status value )
+app.patch('/offers/status/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { status } = req.body;
 
+    if (status === "accepted") {
+      // Find the accepted offer
+      const acceptedOffer = await offersCollection.findOne({ _id: new ObjectId(id) });
+      if (!acceptedOffer) {
+        return res.status(404).send({ success: false, message: 'Offer not found' });
+      }
+      const propertyId = acceptedOffer.propertyId;
+
+      // 1️⃣ Accept this offer
+      await offersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "accepted" } }
+      );
+
+      // 2️⃣ Reject other offers for the same property
+      await offersCollection.updateMany(
+        { propertyId: propertyId, _id: { $ne: new ObjectId(id) } },
+        { $set: { status: "rejected" } }
+      );
+
+      return res.send({ success: true, message: 'Offer accepted and others rejected' });
+    } else if (status === "rejected") {
+      // Just reject this offer
+      await offersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "rejected" } }
+      );
+      return res.send({ success: true, message: 'Offer rejected' });
+    } else {
+      return res.status(400).send({ success: false, message: 'Invalid status value' });
+    }
+  } catch (error) {
+    res.status(500).send({ success: false, message: 'Server error', error: error.message });
+  }
+});
 
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
