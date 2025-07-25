@@ -277,6 +277,15 @@ app.patch('/users/:id/fraud', async (req, res) => {
   res.send({ success: true });
 });
 
+// DELETE: Remove user from DB (and Firebase)
+app.delete('/users/:id', async (req, res) => {
+  const id = req.params.id;
+  // 1. Remove from DB
+  await usersCollection.deleteOne({ _id: new ObjectId(id) });
+  // 2. Remove from Firebase (placeholder)
+  // TODO: Use Firebase Admin SDK to delete user by email/uid
+  res.send({ success: true });
+});
     // PATCH /properties/:id/verify - verify property
     app.patch("/properties/:id/verify", async (req, res) => {
       try {
@@ -309,7 +318,7 @@ app.patch('/users/:id/fraud', async (req, res) => {
       }
     });
 
-    //--------Agent API----//
+    //--------AGENT API----//
     // PATCH: Update property by ID
     app.patch("/properties/:id", async (req, res) => {
       try {
