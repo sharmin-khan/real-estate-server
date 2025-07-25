@@ -258,6 +258,14 @@ async function run() {
       const users = await usersCollection.find().toArray();
       res.send(users);
     });
+
+    // PATCH: Update user role (admin/agent)
+app.patch('/users/:id/role', async (req, res) => {
+  const { role } = req.body;
+  const id = req.params.id;
+  await usersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { role } });
+  res.send({ success: true });
+});
     // PATCH /properties/:id/verify - verify property
     app.patch("/properties/:id/verify", async (req, res) => {
       try {
