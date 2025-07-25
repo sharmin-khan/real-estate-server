@@ -266,6 +266,17 @@ app.patch('/users/:id/role', async (req, res) => {
   await usersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { role } });
   res.send({ success: true });
 });
+
+// PATCH: Mark user as fraud (and remove their properties)
+app.patch('/users/:id/fraud', async (req, res) => {
+  const id = req.params.id;
+  // 1. Mark user as fraud
+  await usersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: 'fraud' } });
+  // 2. Remove all properties by this agent from All Properties (set a flag or delete)
+  await propertyCollection.updateMany({ agentId: id }, { $set: { verificationStatus: 'fraud' } });
+  res.send({ success: true });
+});
+
     // PATCH /properties/:id/verify - verify property
     app.patch("/properties/:id/verify", async (req, res) => {
       try {
