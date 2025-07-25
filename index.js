@@ -256,7 +256,7 @@ async function run() {
     app.patch("/properties/:id/verify", async (req, res) => {
       try {
         const id = req.params.id;
-        const result = await propertiesCollection.updateOne(
+        const result = await propertyCollection.updateOne(
           { _id: new ObjectId(id) },
           { $set: { verificationStatus: "verified" } }
         );
@@ -272,7 +272,7 @@ async function run() {
     app.patch("/properties/:id/reject", async (req, res) => {
       try {
         const id = req.params.id;
-        const result = await propertiesCollection.updateOne(
+        const result = await propertyCollection.updateOne(
           { _id: new ObjectId(id) },
           { $set: { verificationStatus: "rejected" } }
         );
@@ -284,9 +284,9 @@ async function run() {
       }
     });
 
-//--------Agent API----//
+    //--------Agent API----//
     // PATCH: Update property by ID
-    app.patch('/properties/:id', async (req, res) => {
+    app.patch("/properties/:id", async (req, res) => {
       try {
         const id = req.params.id;
         const updateData = req.body;
@@ -295,31 +295,103 @@ async function run() {
           { $set: updateData }
         );
         if (result.modifiedCount > 0) {
-          res.send({ success: true, message: 'Property updated successfully' });
+          res.send({ success: true, message: "Property updated successfully" });
         } else {
-          res.status(404).send({ success: false, message: 'Property not found or no changes' });
+          res
+            .status(404)
+            .send({
+              success: false,
+              message: "Property not found or no changes",
+            });
         }
       } catch (error) {
-        res.status(500).send({ success: false, message: 'Server error', error: error.message });
+        res
+          .status(500)
+          .send({
+            success: false,
+            message: "Server error",
+            error: error.message,
+          });
       }
     });
 
     // DELETE: Delete property by ID
-app.delete('/properties/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const result = await propertyCollection.deleteOne({ _id: new ObjectId(id) });
-    if (result.deletedCount > 0) {
-      res.send({ success: true, message: 'Property deleted successfully' });
-    } else {
-      res.status(404).send({ success: false, message: 'Property not found' });
-    }
-  } catch (error) {
-    res.status(500).send({ success: false, message: 'Server error', error: error.message });
-  }
-});
+    app.delete("/properties/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await propertyCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        if (result.deletedCount > 0) {
+          res.send({ success: true, message: "Property deleted successfully" });
+        } else {
+          res
+            .status(404)
+            .send({ success: false, message: "Property not found" });
+        }
+      } catch (error) {
+        res
+          .status(500)
+          .send({
+            success: false,
+            message: "Server error",
+            error: error.message,
+          });
+      }
+    });
 
+    // Get all offers for agent
+    app.post("/offers", async (req, res) => {
+      const offer = req.body;
+
+      // Convert propertyId to ObjectId before saving
+      if (offer.propertyId) {
+        offer.propertyId = new ObjectId(offer.propertyId);
+      }
+
+      try {
+        const result = await offersCollection.insertOne(offer);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to save offer", details: err });
+      }
+    });
+
+    // GET: All offers for agent's properties
+    app.get("/offers/agent/:email", async (req, res) => {
+      const email = req.params.email;
+      // console.log("Agent Email from frontend:", email);
+
+      // Get agent's properties
+      const agentProperties = await propertyCollection
+        .find({ agentEmail: email })
+        .toArray();
+      const propertyIds = agentProperties.map((p) => p._id.toString()); // <-- use string IDs
+
+      // Find offers with matching propertyIds
+      const offers = await offersCollection
+        .find({ propertyId: { $in: propertyIds } })
+        .toArray();
+
+      res.send(offers);
+    });
+
+    // Get all offers for a specific agent by agentId
+    app.get("/offers/agent/:agentId", async (req, res) => {
+      const agentId = req.params.agentId;
+      try {
+        const offers = await offersCollection
+          .find({ agentId: new ObjectId(agentId) })
+          .toArray();
+        res.send(offers);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ error: "Failed to fetch offers for agent", details: err });
+      }
+    });
     
+
 
     //  DB connection test - this line must be INSIDE try block
     await client.db("admin").command({ ping: 1 });
