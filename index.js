@@ -77,22 +77,25 @@ async function run() {
     });
 
     // GET: All properties and filter by agent email
-app.get("/properties", async (req, res) => {
-  const { agentEmail } = req.query;
-
-  let query = {};
-  if (agentEmail) {
-    query.agentEmail = agentEmail;
-  }
-
-  const result = await propertyCollection.find(query).toArray();
-  res.send(result);
-});
+    app.get("/properties", async (req, res) => {
+      const agentEmail = req.query.agentEmail;
+      let query = {};
+      if (agentEmail) {
+        query = { agentEmail: agentEmail };
+      }
+      const result = await propertiesCollection.find(query).toArray();
+      res.send(result);
+    });
 
     // POST: Add a new property
     app.post("/properties", async (req, res) => {
       try {
         const property = req.body;
+
+        // Default verificationStatus = "pending" jodi na thake
+        if (!property.verificationStatus) {
+          property.verificationStatus = "pending";
+        }
 
         // Validate required fields
         if (
