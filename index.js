@@ -9,8 +9,10 @@ const admin = require("./firebase/firebase.config");
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173",
-      "https://real-estate-platform-4dacc.web.app"],
+    origin: [
+      "http://localhost:5173",
+      "https://real-estate-platform-4dacc.web.app",
+    ],
     credentials: true,
   })
 );
@@ -307,18 +309,25 @@ async function run() {
         await usersCollection.deleteOne({ _id: new ObjectId(id) });
 
         // 3. Delete user from Firebase Auth (by email)
-        const firebaseUser = await admin.auth().getUserByEmail(user.email);
-        await admin.auth().deleteUser(firebaseUser.uid);
+        try {
+          const firebaseUser = await admin.auth().getUserByEmail(user.email);
+          await admin.auth().deleteUser(firebaseUser.uid);
+        } catch (firebaseError) {
+          // If Firebase user not found, just log and continue
+          console.warn(
+            `Firebase user deletion failed: ${firebaseError.message}`
+          );
+        }
 
         res.send({
           success: true,
-          message: "User deleted from DB and Firebase",
+          message: "User deleted from DB and Firebase (if existed)",
         });
       } catch (error) {
         console.error(error);
         res.status(500).send({
           success: false,
-          message: "Failed to delete user from Firebase",
+          message: "Failed to delete user",
           error: error.message,
         });
       }
@@ -407,6 +416,23 @@ async function run() {
     });
 
     // Get all offers for agent
+    // app.post("/offers", async (req, res) => {
+    //   const offer = req.body;
+
+    //   // Convert propertyId to ObjectId before saving
+    //   if (offer.propertyId) {
+    //     offer.propertyId = new ObjectId(offer.propertyId);
+    //   }
+
+    //   try {
+    //     const result = await offersCollection.insertOne(offer);
+    //     res.send(result);
+    //   } catch (err) {
+    //     res.status(500).send({ error: "Failed to save offer", details: err });
+    //   }
+    // });
+
+    // POST: Add an offer
     app.post("/offers", async (req, res) => {
       const offer = req.body;
 
@@ -415,12 +441,27 @@ async function run() {
         offer.propertyId = new ObjectId(offer.propertyId);
       }
 
+      // Set default status to "pending" if not provided
+      if (!offer.status) {
+        offer.status = "pending";
+      }
+
       try {
         const result = await offersCollection.insertOne(offer);
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: "Failed to save offer", details: err });
       }
+    });
+    // GET: All offers
+    app.get("/offers", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query = { buyerEmail: email };
+      }
+      const result = await offersCollection.find(query).toArray();
+      res.send(result);
     });
 
     // GET: All offers for agent's properties
