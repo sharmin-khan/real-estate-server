@@ -9,7 +9,8 @@ const admin = require("./firebase/firebase.config");
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173",
+      "https://real-estate-platform-4dacc.web.app"],
     credentials: true,
   })
 );
@@ -27,7 +28,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect(); //  DB connection
+    // await client.connect(); //  DB connection
 
     const db = client.db("RealEstate");
     const usersCollection = db.collection("users");
@@ -524,8 +525,8 @@ async function run() {
     });
 
     //  DB connection test - this line must be INSIDE try block
-    await client.db("admin").command({ ping: 1 });
-    console.log(" Pinged your deployment. Connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(" Pinged your deployment. Connected to MongoDB!");
   } catch (err) {
     console.error(err);
   }
