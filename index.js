@@ -39,6 +39,7 @@ async function run() {
     // POST: Add user
     app.post("/users", async (req, res) => {
       const user = req.body;
+      // console.log("Received user:", user);
       const existingUser = await usersCollection.findOne({ email: user.email });
       if (existingUser) {
         return res.send({ message: "User already exists" });
@@ -503,14 +504,23 @@ async function run() {
             .send({ success: false, message: "Invalid status value" });
         }
       } catch (error) {
-        res
-          .status(500)
-          .send({
-            success: false,
-            message: "Server error",
-            error: error.message,
-          });
+        res.status(500).send({
+          success: false,
+          message: "Server error",
+          error: error.message,
+        });
       }
+    });
+    // GET: Sold properties by agent email
+    app.get("/sold-properties", async (req, res) => {
+      const email = req.query.email;
+      const result = await offersCollection
+        .find({
+          agentEmail: email,
+          status: "bought",
+        })
+        .toArray();
+      res.send(result);
     });
 
     //  DB connection test - this line must be INSIDE try block
