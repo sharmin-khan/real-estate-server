@@ -76,11 +76,19 @@ async function run() {
       res.send(result);
     });
 
-    // GET: All properties
-    app.get("/properties", async (req, res) => {
-      const result = await propertyCollection.find().toArray();
-      res.send(result);
-    });
+    // GET: All properties and filter by agent email
+app.get("/properties", async (req, res) => {
+  const { agentEmail } = req.query;
+
+  let query = {};
+  if (agentEmail) {
+    query.agentEmail = agentEmail;
+  }
+
+  const result = await propertyCollection.find(query).toArray();
+  res.send(result);
+});
+
     // POST: Add a new property
     app.post("/properties", async (req, res) => {
       try {
