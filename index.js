@@ -267,6 +267,16 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch offers", details: err });
       }
     });
+   // GET: Get offer by ID
+    app.get("/offers/:id", async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const offer = await offersCollection.findOne(query);
+  if (!offer) {
+    return res.status(404).send({ message: "Offer not found" });
+  }
+  res.send(offer);
+});
 
     // PATCH: Update status to bought and save transactionId
     app.patch("/offers/payment/:id", async (req, res) => {
