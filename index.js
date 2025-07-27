@@ -626,9 +626,9 @@ app.patch('/offers/:id', async (req, res) => {
 // POST: Create a payment intent
 app.post('/create-payment-intent', async (req, res) => {
   const { amount } = req.body;
-   console.log('Received amount:', amount);
+  //  console.log('Received amount:', amount);
   if (!amount || isNaN(amount) || amount < 1) {
-    console.log('Invalid amount:', amount);
+    // console.log('Invalid amount:', amount);
     return res.status(400).send({ error: 'Invalid amount' });
   }
   try {
@@ -636,12 +636,12 @@ app.post('/create-payment-intent', async (req, res) => {
       amount, 
       currency: 'bdt', 
     });
-     console.log('PaymentIntent created:', paymentIntent);
+    //  console.log('PaymentIntent created:', paymentIntent);
     res.send({
       clientSecret: paymentIntent.client_secret,
     });
   } catch (err) {
-     console.error('Stripe error:', err);
+    //  console.error('Stripe error:', err);
     res.status(500).send({ error: err.message });
   }
 });
