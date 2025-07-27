@@ -1,10 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const Stripe = require('stripe');
 const app = express();
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const admin = require("./firebase/firebase.config");
+
+
 
 // Middleware
 app.use(
@@ -17,6 +20,8 @@ app.use(
   })
 );
 app.use(express.json());
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0eyhim6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -451,22 +456,7 @@ async function run() {
       }
     });
 
-    // Get all offers for agent
-    // app.post("/offers", async (req, res) => {
-    //   const offer = req.body;
 
-    //   // Convert propertyId to ObjectId before saving
-    //   if (offer.propertyId) {
-    //     offer.propertyId = new ObjectId(offer.propertyId);
-    //   }
-
-    //   try {
-    //     const result = await offersCollection.insertOne(offer);
-    //     res.send(result);
-    //   } catch (err) {
-    //     res.status(500).send({ error: "Failed to save offer", details: err });
-    //   }
-    // });
 
     // POST: Add an offer
     app.post("/offers", async (req, res) => {
@@ -630,6 +620,31 @@ app.patch('/offers/:id', async (req, res) => {
     console.error(err);
   }
 }
+
+
+
+// POST: Create a payment intent
+app.post('/create-payment-intent', async (req, res) => {
+  const { amount } = req.body;
+   console.log('Received amount:', amount);
+  if (!amount || isNaN(amount) || amount < 1) {
+    console.log('Invalid amount:', amount);
+    return res.status(400).send({ error: 'Invalid amount' });
+  }
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount, 
+      currency: 'bdt', 
+    });
+     console.log('PaymentIntent created:', paymentIntent);
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (err) {
+     console.error('Stripe error:', err);
+    res.status(500).send({ error: err.message });
+  }
+});
 
 run().catch(console.dir);
 
