@@ -209,11 +209,11 @@ async function run() {
     });
 
     // POST: Add a review
-    app.post("/reviews", async (req, res) => {
-      const review = req.body;
-      const result = await reviewsCollection.insertOne(review);
-      res.send(result);
-    });
+    // app.post("/reviews", async (req, res) => {
+    //   const review = req.body;
+    //   const result = await reviewsCollection.insertOne(review);
+    //   res.send(result);
+    // });
 
     // DELETE: Delete a review by id
     app.delete("/reviews/:id", async (req, res) => {
@@ -579,6 +579,28 @@ async function run() {
         });
       }
     });
+    // Express.js backend example
+// PATCH: Update offer status ( bought, transactionId)
+app.patch('/offers/:id', async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body; // { status: "bought", transactionId: "txn_123" }
+
+  try {
+    const result = await offersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.send({ success: true, message: "Offer updated" });
+    } else {
+      res.status(404).send({ success: false, message: "Offer not found" });
+    }
+  } catch (error) {
+    res.status(500).send({ success: false, message: error.message });
+  }
+});
+
     // GET: Sold properties by agent email
     app.get("/sold-properties", async (req, res) => {
       const email = req.query.email;
