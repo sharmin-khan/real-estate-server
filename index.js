@@ -83,7 +83,7 @@ async function run() {
       if (agentEmail) {
         query = { agentEmail: agentEmail };
       }
-      const result = await propertiesCollection.find(query).toArray();
+      const result = await propertyCollection.find(query).toArray();
       res.send(result);
     });
 
@@ -249,9 +249,10 @@ async function run() {
       }
     });
 
-    // GET: Offers by buyer email
-    app.get("/offers", async (req, res) => {
+    // GET: Offers by agent email
+    app.get("/agent-offers", async (req, res) => {
       const email = req.query.email;
+      // console.log("Fetching offers for agent email:", email); // debug log);
       if (!email) {
         return res
           .status(400)
@@ -259,12 +260,26 @@ async function run() {
       }
       try {
         const result = await offersCollection
-          .find({ buyerEmail: email })
+          .find({ agentEmail: email })
           .toArray();
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: "Failed to fetch offers", details: err });
       }
+    });
+
+    // PATCH: Update status to bought and save transactionId
+    app.patch("/offers/payment/:id", async (req, res) => {
+      const { id } = req.params;
+      const { status, transactionId } = req.body;
+
+      const result = await offersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: { status, transactionId },
+        }
+      );
+      res.send(result);
     });
 
     //-------API for ADMIN--------
@@ -465,7 +480,7 @@ async function run() {
       }
     });
     // GET: All offers
-    app.get("/offers", async (req, res) => {
+    app.get("/buyer-offers", async (req, res) => {
       const email = req.query.email;
       let query = {};
       if (email) {
