@@ -1,13 +1,10 @@
 const express = require("express");
 const cors = require("cors");
-const Stripe = require('stripe');
 const app = express();
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const admin = require("./firebase/firebase.config");
-
-
 
 // Middleware
 app.use(
@@ -21,7 +18,7 @@ app.use(
 );
 app.use(express.json());
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0eyhim6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -35,7 +32,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // await client.connect(); //  DB connection
+    await client.connect(); //  DB connection
 
     const db = client.db("RealEstate");
     const usersCollection = db.collection("users");
@@ -81,16 +78,82 @@ async function run() {
       res.send(result);
     });
 
-    // GET: All properties and filter by agent email
+    // ======================
+    // GET /properties
+    // Combined route for fetching properties
+    // - If `agentEmail` is provided, filter by agent email
+    // - If `verified=true` is provided, filter verified properties
+    // - Both filters can be used together
+    // ======================
     app.get("/properties", async (req, res) => {
-      const agentEmail = req.query.agentEmail;
-      let query = {};
-      if (agentEmail) {
-        query = { agentEmail: agentEmail };
+      try {
+        const { agentEmail, verified } = req.query;
+
+        let query = {};
+        if (agentEmail) query.agentEmail = agentEmail;
+        if (verified === "true") query.verificationStatus = "verified";
+
+        const result = await propertyCollection.find(query).toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to fetch properties" });
       }
-      const result = await propertyCollection.find(query).toArray();
-      res.send(result);
     });
+
+    app.get("/properties/search", async (req, res) => {
+      try {
+        const { location } = req.query;
+
+        if (!location) {
+          return res.status(400).send({ error: "Location is required" });
+        }
+
+        const properties = await propertyCollection
+          .find({
+            location: { $regex: location, $options: "i" },
+            verificationStatus: "verified",
+          })
+          .toArray();
+
+        res.status(200).send(properties);
+      } catch (err) {
+        console.error("Search error:", err);
+        res.status(500).send({ error: err.message });
+      }
+    });
+
+    // app.get("/properties", async (req, res) => {
+    //   const agentEmail = req.query.agentEmail;
+    //   let query = {};
+    //   if (agentEmail) {
+    //     query = { agentEmail: agentEmail };
+    //   }
+    //   const result = await propertyCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+
+    // // Get verified properties (latest 4)
+    // app.get("/properties", async (req, res) => {
+    //   try {
+    //     const verified = req.query.verified;
+
+    //     let query = {};
+    //     if (verified === "true") {
+    //       query.verificationStatus = "verified";
+    //     }
+
+    //     // latest first (descending by createdAt)
+    //     const result = await propertyCollection
+    //       .find(query)
+    //       .sort({ createdAt: -1 }) // latest first
+    //       .limit(4) // only 4 properties
+    //       .toArray();
+
+    //     res.send(result);
+    //   } catch (err) {
+    //     res.status(500).send({ error: "Failed to fetch properties" });
+    //   }
+    // });
 
     // POST: Add a new property
     app.post("/properties", async (req, res) => {
@@ -101,6 +164,8 @@ async function run() {
         if (!property.verificationStatus) {
           property.verificationStatus = "pending";
         }
+        // Add createdAt timestamp (new Date())
+        property.createdAt = new Date();
 
         // Validate required fields
         if (
@@ -142,32 +207,28 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/wishlist/:id", async (req, res) => {
+      const { id } = req.params;
+      // Try both ObjectId and string
+      let result = await wishlistCollection.deleteOne({ _id: id });
+      if (
+        result.deletedCount === 0 &&
+        require("mongodb").ObjectId.isValid(id)
+      ) {
+        result = await wishlistCollection.deleteOne({ _id: new ObjectId(id) });
+      }
+      if (result.deletedCount === 0) {
+        return res.status(404).send({ error: "Item not found" });
+      }
+      res.send(result);
+    });
+
     // GET: Reviews for a property
     app.get("/reviews/:propertyId", async (req, res) => {
       const { propertyId } = req.params;
       const reviews = await reviewsCollection.find({ propertyId }).toArray();
       res.send(reviews);
     });
-
-    // // GET: Reviews by user email
-    // app.get("/reviews", async (req, res) => {
-    //   const email = req.query.email;
-    //   if (!email) {
-    //     return res
-    //       .status(400)
-    //       .send({ error: "Email query parameter is required" });
-    //   }
-    //   try {
-    //     const result = await reviewsCollection
-    //       .find({ userEmail: email })
-    //       .toArray();
-    //     res.send(result);
-    //   } catch (err) {
-    //     res
-    //       .status(500)
-    //       .send({ error: "Failed to fetch reviews", details: err });
-    //   }
-    // });
 
     // ✅ GET: Latest 3 user reviews with user info and property title
     app.get("/reviews", async (req, res) => {
@@ -272,16 +333,16 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch offers", details: err });
       }
     });
-   // GET: Get offer by ID
+    // GET: Get offer by ID
     app.get("/offers/:id", async (req, res) => {
-  const id = req.params.id;
-  const query = { _id: new ObjectId(id) };
-  const offer = await offersCollection.findOne(query);
-  if (!offer) {
-    return res.status(404).send({ message: "Offer not found" });
-  }
-  res.send(offer);
-});
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const offer = await offersCollection.findOne(query);
+      if (!offer) {
+        return res.status(404).send({ message: "Offer not found" });
+      }
+      res.send(offer);
+    });
 
     // PATCH: Update status to bought and save transactionId
     app.patch("/offers/payment/:id", async (req, res) => {
@@ -456,8 +517,6 @@ async function run() {
       }
     });
 
-
-
     // POST: Add an offer
     app.post("/offers", async (req, res) => {
       const offer = req.body;
@@ -580,26 +639,26 @@ async function run() {
       }
     });
     // Express.js backend example
-// PATCH: Update offer status ( bought, transactionId)
-app.patch('/offers/:id', async (req, res) => {
-  const { id } = req.params;
-  const updateData = req.body; // { status: "bought", transactionId: "txn_123" }
+    // PATCH: Update offer status ( bought, transactionId)
+    app.patch("/offers/:id", async (req, res) => {
+      const { id } = req.params;
+      const updateData = req.body; // { status: "bought", transactionId: "txn_123" }
 
-  try {
-    const result = await offersCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
-    );
+      try {
+        const result = await offersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData }
+        );
 
-    if (result.modifiedCount > 0) {
-      res.send({ success: true, message: "Offer updated" });
-    } else {
-      res.status(404).send({ success: false, message: "Offer not found" });
-    }
-  } catch (error) {
-    res.status(500).send({ success: false, message: error.message });
-  }
-});
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: "Offer updated" });
+        } else {
+          res.status(404).send({ success: false, message: "Offer not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
 
     // GET: Sold properties by agent email
     app.get("/sold-properties", async (req, res) => {
@@ -621,20 +680,18 @@ app.patch('/offers/:id', async (req, res) => {
   }
 }
 
-
-
 // POST: Create a payment intent
-app.post('/create-payment-intent', async (req, res) => {
+app.post("/create-payment-intent", async (req, res) => {
   const { amount } = req.body;
   //  console.log('Received amount:', amount);
   if (!amount || isNaN(amount) || amount < 1) {
     // console.log('Invalid amount:', amount);
-    return res.status(400).send({ error: 'Invalid amount' });
+    return res.status(400).send({ error: "Invalid amount" });
   }
   try {
     const paymentIntent = await stripe.paymentIntents.create({
-      amount, 
-      currency: 'bdt', 
+      amount,
+      currency: "bdt",
     });
     //  console.log('PaymentIntent created:', paymentIntent);
     res.send({
